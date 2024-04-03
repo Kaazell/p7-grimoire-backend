@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const { User } = require("./db/mongo");
 const cors = require("cors");
+const bcrypt = require("bcrypt");
 
 const PORT = 4000;
 
@@ -33,7 +34,7 @@ async function signUp(req, res) {
   }
   const user = {
     email: email,
-    password: password,
+    password: hashPassword(password),
   };
   try {
     await User.create(user);
@@ -43,13 +44,10 @@ async function signUp(req, res) {
     res.status(500).send("Something went wrong");
     return;
   }
-  console.log("users : ", users);
   res.send("Sign up");
 }
 async function login(req, res) {
   const body = req.body;
-  console.log("Body:", body);
-  console.log("users in db:", users);
 
   const userInDb = await User.findOne({ email: body.email });
   if (userInDb == null) {
@@ -57,7 +55,7 @@ async function login(req, res) {
     return;
   }
   const passwordInDb = userInDb.password;
-  if (passwordInDb != body.password) {
+  if (!isPasswordCorrect(req.body.password, passwordInDb)) {
     res.status(401).send("Wrong password");
     return;
   }
@@ -66,4 +64,14 @@ async function login(req, res) {
     userId: userInDb._id,
     token: "token",
   });
+}
+
+function hashPassword(password) {
+  const salt = bcrypt.genSaltSync(10);
+  const hash = bcrypt.hashSync(password, salt);
+  return hash;
+}
+
+function isPasswordCorrect(password, hash) {
+  return bcrypt.compareSync(password, hash);
 }
